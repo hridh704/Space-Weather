@@ -36,18 +36,33 @@ Cosmic Forecast is a futuristic weather application that visualizes real-time Sp
 -   **Charting:** [Recharts](https://recharts.org/)
 -   **Build:** No build step! Runs directly in the browser with ES Modules and an import map.
 
+## 🔑 Setup
+
+Before running the application, you need to add your own NASA API key.
+
+1.  **Get a NASA API Key:**
+    -   Go to the [NASA API website](https://api.nasa.gov/).
+    -   Fill out the form to generate your free API key.
+
+2.  **Add Key to Configuration:**
+    -   Open the `config.ts` file in your project.
+    -   Replace the placeholder text `"YOUR_NASA_API_KEY_HERE"` with the actual key you received from NASA.
+    -   Save the file.
+
 ## 🚀 Local Development
 
 This project is designed to run directly in the browser without any build steps.
 
-1.  **Clone the repository:**
+1.  **Complete the Setup:** Make sure you have added your API key to `config.ts` as described in the Setup section.
+
+2.  **Clone the repository:**
     ```bash
     git clone https://github.com/your-username/cosmic-forecast.git
     cd cosmic-forecast
     ```
 
-2.  **Run the application:**
-    Since there's no build server, you can simply open the `index.html` file in your browser. For the best experience (and to avoid potential CORS issues with local files), it's recommended to serve the directory with a simple local server.
+3.  **Run the application:**
+    Since there's no build server, you can simply open the `index.html` file in your browser. For the best experience, it's recommended to serve the directory with a simple local server.
 
     If you have Python installed:
     ```bash
@@ -58,9 +73,9 @@ This project is designed to run directly in the browser without any build steps.
 
 ## 🌐 Deployment to GitHub Pages
 
-This application is ready for deployment to GitHub Pages without any changes.
+This application is ready for deployment to GitHub Pages.
 
-1.  **Push to GitHub:** Create a new repository on GitHub and push your local code to it.
+1.  **Push to GitHub:** Create a new repository on GitHub and push your local code to it. **Important:** For security, avoid pushing your `config.ts` file if it contains your real API key.
 
 2.  **Enable GitHub Pages:**
     -   In your GitHub repository, go to the **Settings** tab.
