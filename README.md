@@ -2,7 +2,7 @@
 
 **Your daily link to Space weather.**
 
-Cosmic Forecast is a futuristic weather application that visualizes real-time Space weather data fetched from NASA's public APIs. It features a sleek, glassmorphism-inspired UI with neon accents, designed to be both beautiful and educational.
+Cosmic Forecast is a futuristic weather application that visualizes realistic, pre-generated Space weather data. It features a sleek, glassmorphism-inspired UI with neon accents, designed to be a beautiful and educational demonstration.
 
 *Note: You can replace the placeholder below with a screenshot of the running application.*
 ![Cosmic Forecast Screenshot](placeholder.png)
@@ -15,8 +15,7 @@ Cosmic Forecast is a futuristic weather application that visualizes real-time Sp
     -   Maximum CME Speed
     -   Maximum X-ray Flux (Solar Flares)
     -   Solar Energetic Particle (SEP) Events
--   **Live NASA Data:**
-    -   ☀️ **Space Weather:** Coronal Mass Ejections (CMEs), Geomagnetic Storms (GST), Solar Flares (FLR), and Solar Energetic Particle (SEP) events from NASA's DONKI API.
+-   **Realistic Demo Data:** The app uses a built-in data generator for a consistent and reliable experience, perfect for demonstrations.
 -   **7-Day Space Forecast:** A scrollable strip showing a full week's forecast for space weather conditions.
 -   **Interactive Data Visualizer:**
     -   Visualize historical Solar Wind speed.
@@ -35,21 +34,6 @@ Cosmic Forecast is a futuristic weather application that visualizes real-time Sp
 -   **Styling:** [Tailwind CSS](https://tailwindcss.com/) (via CDN)
 -   **Charting:** [Recharts](https://recharts.org/)
 -   **Build:** No build step! Runs directly in the browser with ES Modules and an import map.
-
-## 🔑 Setup
-
-This application works out-of-the-box using NASA's public `DEMO_KEY`.
-
-If you plan to use the application heavily or encounter rate limits, you can get your own personal key:
-
-1.  **Get a NASA API Key:**
-    -   Go to the [NASA API website](https://api.nasa.gov/).
-    -   Fill out the form to generate your free API key.
-
-2.  **Add Key to Configuration:**
-    -   Open the `config.ts` file in your project.
-    -   Replace the default `"DEMO_KEY"` with the actual key you received from NASA.
-    -   Save the file.
 
 ## 🚀 Local Development
 

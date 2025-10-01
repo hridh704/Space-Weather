@@ -16,21 +16,13 @@ import { WindIcon, GaugeIcon, SunIcon, XRayIcon, ProtonIcon } from './components
 const App: React.FC = () => {
     const [weatherData, setWeatherData] = useState<SpaceWeatherData | null>(null);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         const loadData = async () => {
-            try {
-                setLoading(true);
-                const data = await fetchWeatherData();
-                setWeatherData(data);
-                setError(null);
-            } catch (err) {
-                setError('Failed to fetch cosmic data. Please try again later.');
-                console.error(err);
-            } finally {
-                setLoading(false);
-            }
+            setLoading(true);
+            const data = await fetchWeatherData();
+            setWeatherData(data);
+            setLoading(false);
         };
 
         loadData();
@@ -46,23 +38,8 @@ const App: React.FC = () => {
       </div>
     );
 
-    /**
-     * A component to display an error message if data fetching fails.
-     * @param {object} props - The component props.
-     * @param {string} props.message - The error message to display.
-     */
-    const ErrorDisplay = ({ message }: { message: string }) => (
-      <div className="flex items-center justify-center h-screen text-center text-red-400">
-        <p className="text-xl">{message}</p>
-      </div>
-    );
-
-    if (loading) {
+    if (loading || !weatherData) {
         return <LoadingSpinner />;
-    }
-
-    if (error || !weatherData) {
-        return <ErrorDisplay message={error || "An unknown error occurred."} />;
     }
 
     return (
