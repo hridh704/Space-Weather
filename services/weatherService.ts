@@ -1,8 +1,7 @@
 
 import React from 'react';
-import type { WeatherData, EarthWeatherData, SpaceWeatherData, EarthForecast, SpaceForecast, ChartDataPoint } from '../types';
+import type { SpaceWeatherData, SpaceForecast, ChartDataPoint } from '../types';
 import { NASA_API_KEY } from '../config';
-import { SunIcon, CloudIcon, CloudDrizzleIcon } from '../components/icons';
 
 /**
  * Helper to format a Date object into a YYYY-MM-DD string.
@@ -20,37 +19,27 @@ const getDayAbbreviation = (date: Date): string => {
     return date.toLocaleString('en-US', { weekday: 'short' });
 };
 
-// --- Mock Data Generation ---
-
 /**
- * Generates mock Earth weather data for fallback purposes.
- * @returns {EarthWeatherData} A complete mock Earth weather data object.
+ * Converts a solar flare class string (e.g., "X1.9", "M5.5") to a numerical
+ * value for easier comparison and charting.
+ * @param {string} flareClass - The flare class string.
+ * @returns {number} A numerical representation of the flare's intensity.
  */
-const generateMockEarthData = (): EarthWeatherData => {
-    const forecast: EarthForecast[] = [];
-    for (let i = 1; i <= 7; i++) {
-        const day = new Date();
-        day.setDate(day.getDate() + i);
-        forecast.push({
-            day: getDayAbbreviation(day),
-            temperature: Math.round(18 + Math.random() * 5),
-            condition: 'Partly Cloudy',
-            icon: CloudIcon,
-        });
+const flareClassToNumber = (flareClass: string): number => {
+    if (!flareClass) return 0;
+    const classLetter = flareClass.charAt(0).toUpperCase();
+    const classValue = parseFloat(flareClass.substring(1));
+    switch (classLetter) {
+        case 'X': return 50 + classValue; // e.g., X9.3 -> 59.3
+        case 'M': return 40 + classValue; // e.g., M5.5 -> 45.5
+        case 'C': return 30 + classValue;
+        case 'B': return 20 + classValue;
+        case 'A': return 10 + classValue;
+        default: return 0;
     }
-    return {
-        location: 'Mock Station',
-        temperature: 23,
-        windSpeed: 15,
-        condition: 'Sunny',
-        humidity: 60,
-        icon: SunIcon,
-        forecast,
-        historicalTemp: Array.from({ length: 7 }, (_, i) => ({ time: `Day ${i - 7}`, value: 20 + Math.random() * 5 })),
-        historicalWind: Array.from({ length: 7 }, (_, i) => ({ time: `Day ${i - 7}`, value: 12 + Math.random() * 5 })),
-        historicalHumidity: Array.from({ length: 7 }, (_, i) => ({ time: `Day ${i - 7}`, value: 55 + Math.random() * 10 })),
-    };
 };
+
+// --- Mock Data Generation ---
 
 /**
  * Generates mock Space weather data for fallback purposes.
@@ -70,112 +59,18 @@ const generateMockSpaceData = (): SpaceWeatherData => {
     return {
         solarWindSpeed: 450,
         kpIndex: 3,
-        cmeCount: 2,
+        cmeMaxSpeed: 1200,
+        xrayFluxClass: 'M1.5',
+        sepEvents: 1,
         forecast,
         historicalSolarWind: Array.from({ length: 7 }, (_, i) => ({ time: `Day ${i - 7}`, value: 420 + Math.random() * 50 })),
         historicalKpIndex: Array.from({ length: 7 }, (_, i) => ({ time: `Day ${i - 7}`, value: Math.floor(Math.random() * 4) })),
-        historicalCmeCount: Array.from({ length: 7 }, (_, i) => ({ time: `Day ${i - 7}`, value: Math.floor(Math.random() * 3) })),
+        historicalCmeSpeed: Array.from({ length: 7 }, (_, i) => ({ time: `Day ${i - 7}`, value: 800 + Math.random() * 400 })),
+        historicalXrayFlux: Array.from({ length: 7 }, (_, i) => ({ time: `Day ${i - 7}`, value: flareClassToNumber('C' + (Math.random()*5).toFixed(1)) })),
+        historicalSepEvents: Array.from({ length: 7 }, (_, i) => ({ time: `Day ${i - 7}`, value: Math.floor(Math.random() * 2) })),
     };
 };
 
-
-// --- NASA Earth Weather (POWER API) ---
-
-/**
- * Fetches and processes Earth weather data from NASA's POWER API.
- * @param {number} latitude - The latitude of the location.
- * @param {number} longitude - The longitude of the location.
- * @returns {Promise<EarthWeatherData>} A promise resolving to the processed Earth weather data.
- */
-const fetchNasaEarthData = async (latitude: number, longitude: number): Promise<EarthWeatherData> => {
-    const today = new Date();
-    const startDate = new Date();
-    startDate.setDate(today.getDate() - 7);
-
-    const formattedStartDate = `${startDate.getFullYear()}${String(startDate.getMonth() + 1).padStart(2, '0')}${String(startDate.getDate()).padStart(2, '0')}`;
-    const formattedEndDate = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`;
-
-    const params = 'T2M,WS10M,RH2M'; // Temp, Wind Speed, Humidity
-    const url = `https://power.larc.nasa.gov/api/temporal/daily/point?start=${formattedStartDate}&end=${formattedEndDate}&latitude=${latitude}&longitude=${longitude}&community=RE&parameters=${params}&format=JSON`;
-
-    const response = await fetch(url);
-    if (!response.ok) throw new Error('Failed to fetch NASA Earth data.');
-    const data = await response.json();
-
-    const properties = data?.properties?.parameter;
-    if (!properties || !properties.T2M || !properties.WS10M || !properties.RH2M) {
-        throw new Error('Invalid Earth data structure from NASA POWER API.');
-    }
-
-    const timeKeys = Object.keys(properties.T2M).sort();
-    
-    const historicalTemp: ChartDataPoint[] = [];
-    const historicalWind: ChartDataPoint[] = [];
-    const historicalHumidity: ChartDataPoint[] = [];
-
-    timeKeys.slice(-7).forEach(key => {
-        const date = new Date(parseInt(key.substring(0, 4)), parseInt(key.substring(4, 6)) - 1, parseInt(key.substring(6, 8)));
-        const dayAbbr = getDayAbbreviation(date);
-
-        const tempVal = properties.T2M[key];
-        const windVal = properties.WS10M[key];
-        const humidityVal = properties.RH2M[key];
-
-        // NASA POWER API uses -999 for missing data. Replace with null for charting.
-        historicalTemp.push({ time: dayAbbr, value: tempVal === -999 ? null : tempVal });
-        historicalWind.push({ time: dayAbbr, value: windVal === -999 ? null : windVal });
-        historicalHumidity.push({ time: dayAbbr, value: humidityVal === -999 ? null : humidityVal });
-    });
-
-    // Find the latest valid (not -999) data point for the main display
-    const findLatestValidValue = (paramData: { [key: string]: number }): number | null => {
-        const sortedKeys = Object.keys(paramData).sort().reverse();
-        for (const key of sortedKeys) {
-            if (paramData[key] !== -999) {
-                return paramData[key];
-            }
-        }
-        return null;
-    };
-
-    const currentTemp = findLatestValidValue(properties.T2M);
-    const currentWind = findLatestValidValue(properties.WS10M);
-    const currentHumidity = findLatestValidValue(properties.RH2M);
-    
-    if (currentTemp === null || currentWind === null || currentHumidity === null) {
-        throw new Error("Could not find valid recent Earth weather data from NASA.");
-    }
-
-    const condition = currentTemp > 25 ? 'Sunny' : (currentTemp < 10 ? 'Cloudy' : 'Partly Cloudy');
-    const icon = currentTemp > 25 ? SunIcon : (currentTemp < 10 ? CloudDrizzleIcon : CloudIcon);
-
-    const forecast: EarthForecast[] = [];
-    for (let i = 1; i <= 7; i++) {
-        const day = new Date();
-        day.setDate(day.getDate() + i);
-        const tempVariation = (Math.random() - 0.5) * 4;
-        const forecastedTemp = currentTemp + tempVariation;
-        forecast.push({
-            day: getDayAbbreviation(day),
-            temperature: Math.round(forecastedTemp),
-            condition: forecastedTemp > 25 ? 'Sunny' : 'Partly Cloudy',
-            icon: forecastedTemp > 25 ? SunIcon : CloudIcon,
-        });
-    }
-
-    return {
-        location: data.geometry.coordinates.join(', '),
-        temperature: Math.round(currentTemp),
-        windSpeed: Math.round(currentWind),
-        condition,
-        humidity: Math.round(currentHumidity),
-        icon,
-        forecast,
-        historicalTemp,
-        historicalWind,
-        historicalHumidity,
-    };
-};
 
 // --- NASA Space Weather (DONKI API) ---
 /**
@@ -192,44 +87,85 @@ const fetchNasaSpaceData = async (): Promise<SpaceWeatherData> => {
     const apiKey = NASA_API_KEY;
     const cmeUrl = `https://api.nasa.gov/DONKI/CME?startDate=${formattedStartDate}&endDate=${formattedEndDate}&api_key=${apiKey}`;
     const gstUrl = `https://api.nasa.gov/DONKI/GST?startDate=${formattedStartDate}&endDate=${formattedEndDate}&api_key=${apiKey}`;
+    const flrUrl = `https://api.nasa.gov/DONKI/FLR?startDate=${formattedStartDate}&endDate=${formattedEndDate}&api_key=${apiKey}`;
+    const sepUrl = `https://api.nasa.gov/DONKI/SEP?startDate=${formattedStartDate}&endDate=${formattedEndDate}&api_key=${apiKey}`;
 
-    const [cmeResponse, gstResponse] = await Promise.all([fetch(cmeUrl), fetch(gstUrl)]);
-    if (!cmeResponse.ok || !gstResponse.ok) throw new Error('Failed to fetch NASA Space data.');
+    const [cmeResponse, gstResponse, flrResponse, sepResponse] = await Promise.all([
+        fetch(cmeUrl), 
+        fetch(gstUrl),
+        fetch(flrUrl),
+        fetch(sepUrl),
+    ]);
+    if (!cmeResponse.ok || !gstResponse.ok || !flrResponse.ok || !sepResponse.ok) throw new Error('Failed to fetch NASA Space data.');
     const cmeData = await cmeResponse.json();
     const gstData = await gstResponse.json();
+    const flrData = await flrResponse.json();
+    const sepData = await sepResponse.json();
 
-    if (!Array.isArray(cmeData) || !Array.isArray(gstData)) {
+    if (!Array.isArray(cmeData) || !Array.isArray(gstData) || !Array.isArray(flrData) || !Array.isArray(sepData)) {
          throw new Error('Invalid Space data structure from NASA DONKI API.');
     }
 
-    const dailyCmeCounts: { [key: string]: number } = {};
-    cmeData.forEach(cme => {
+    const dailyMaxCmeSpeed: { [key: string]: number } = {};
+    cmeData.forEach((cme: any) => {
         const date = getFormattedDate(new Date(cme.startTime));
-        dailyCmeCounts[date] = (dailyCmeCounts[date] || 0) + 1;
+        const speed = cme.cmeAnalyses?.[0]?.speed || 0;
+        if(speed > (dailyMaxCmeSpeed[date] || 0)) {
+            dailyMaxCmeSpeed[date] = speed;
+        }
     });
 
     const dailyMaxKp: { [key: string]: number } = {};
-    gstData.forEach(gst => {
+    gstData.forEach((gst: any) => {
         gst.allKpIndex.forEach((kpEntry: { observedTime: string; kpIndex: number }) => {
             const date = getFormattedDate(new Date(kpEntry.observedTime));
             dailyMaxKp[date] = Math.max(dailyMaxKp[date] || 0, kpEntry.kpIndex);
         });
     });
 
-    const historicalCmeCount: ChartDataPoint[] = [];
+    const dailyMaxXray: { [key: string]: { class: string, value: number } } = {};
+    flrData.forEach((flare: any) => {
+        const date = getFormattedDate(new Date(flare.beginTime));
+        const flareValue = flareClassToNumber(flare.classType);
+        if (flareValue > (dailyMaxXray[date]?.value || 0)) {
+            dailyMaxXray[date] = { class: flare.classType, value: flareValue };
+        }
+    });
+
+    const dailySepCounts: { [key: string]: number } = {};
+    sepData.forEach((sep: any) => {
+        const date = getFormattedDate(new Date(sep.eventTime));
+        dailySepCounts[date] = (dailySepCounts[date] || 0) + 1;
+    });
+
+    const historicalCmeSpeed: ChartDataPoint[] = [];
     const historicalKpIndex: ChartDataPoint[] = [];
+    const historicalXrayFlux: ChartDataPoint[] = [];
+    const historicalSepEvents: ChartDataPoint[] = [];
 
     for (let i = 6; i >= 0; i--) {
         const d = new Date();
         d.setDate(d.getDate() - i);
         const dateStr = getFormattedDate(d);
         const dayAbbr = getDayAbbreviation(d);
-        historicalCmeCount.push({ time: dayAbbr, value: dailyCmeCounts[dateStr] || 0 });
-        historicalKpIndex.push({ time: dayAbbr, value: dailyMaxKp[dateStr] || 0 });
+        historicalCmeSpeed.push({ time: dayAbbr, value: dailyMaxCmeSpeed[dateStr] || null });
+        historicalKpIndex.push({ time: dayAbbr, value: dailyMaxKp[dateStr] ?? null });
+        historicalXrayFlux.push({ time: dayAbbr, value: dailyMaxXray[dateStr]?.value || null });
+        historicalSepEvents.push({ time: dayAbbr, value: dailySepCounts[dateStr] || 0 });
     }
 
-    const latestKp = historicalKpIndex.find(d => d.value !== null)?.value ?? 0;
+    const latestKp = historicalKpIndex.slice(-1)[0]?.value ?? 0;
     const latestSolarWind = 400 + latestKp * 50 + (Math.random() - 0.5) * 50;
+    
+    let latestXrayClass = 'None';
+    for (let i = historicalXrayFlux.length - 1; i >= 0; i--) {
+        const dateStr = getFormattedDate(new Date(new Date().setDate(new Date().getDate() - (historicalXrayFlux.length - 1 - i))));
+        if (dailyMaxXray[dateStr]) {
+            latestXrayClass = dailyMaxXray[dateStr].class;
+            break;
+        }
+    }
+
 
     const forecast: SpaceForecast[] = [];
     for (let i = 1; i <= 7; i++) {
@@ -247,36 +183,31 @@ const fetchNasaSpaceData = async (): Promise<SpaceWeatherData> => {
     return {
         solarWindSpeed: Math.round(latestSolarWind),
         kpIndex: latestKp,
-        cmeCount: historicalCmeCount.find(d => d.value !== null)?.value ?? 0,
+        cmeMaxSpeed: Math.round(historicalCmeSpeed.slice(-1)[0]?.value ?? 0),
+        xrayFluxClass: latestXrayClass,
+        sepEvents: historicalSepEvents.slice(-1)[0]?.value ?? 0,
         forecast,
         historicalSolarWind: historicalKpIndex.map(kp => ({ time: kp.time, value: kp.value === null ? null : (400 + kp.value * 50 + (Math.random() - 0.5) * 50) })),
         historicalKpIndex,
-        historicalCmeCount,
+        historicalCmeSpeed,
+        historicalXrayFlux,
+        historicalSepEvents,
     };
 };
 
 /**
  * Main data fetching function.
- * Fetches both Earth and Space weather data from NASA APIs in parallel.
- * Falls back to mock data if any of the API calls fail.
- * @param {object} params - The coordinates for the weather data.
- * @param {number} params.latitude - The latitude for the Earth weather location.
- * @param {number} params.longitude - The longitude for the Earth weather location.
- * @returns {Promise<WeatherData>} A promise that resolves to the combined weather data.
+ * Fetches Space weather data from NASA APIs.
+ * Falls back to mock data if the API calls fail.
+ * @returns {Promise<SpaceWeatherData>} A promise that resolves to the combined weather data.
  */
-export const fetchWeatherData = async ({ latitude, longitude }: { latitude: number; longitude: number; }): Promise<WeatherData> => {
+export const fetchWeatherData = async (): Promise<SpaceWeatherData> => {
     try {
-        const [earth, space] = await Promise.all([
-            fetchNasaEarthData(latitude, longitude),
-            fetchNasaSpaceData()
-        ]);
-        return { earth, space };
+        const space = await fetchNasaSpaceData();
+        return space;
     } catch (error) {
-        console.error('Error fetching live weather data:', error instanceof Error ? error.message : String(error));
+        console.error('Error fetching live space weather data:', error instanceof Error ? error.message : String(error));
         console.warn('Falling back to mock data.');
-        return {
-            earth: generateMockEarthData(),
-            space: generateMockSpaceData(),
-        };
+        return generateMockSpaceData();
     }
 };

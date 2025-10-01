@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import type { WeatherData } from './types';
+import type { SpaceWeatherData } from './types';
 import { fetchWeatherData } from './services/weatherService';
 import WeatherCard from './components/WeatherCard';
 import ForecastStrip from './components/ForecastStrip';
 import UnifiedChart from './components/UnifiedChart';
 import ImpactSection from './components/ImpactSection';
 import AnimatedBackground from './components/AnimatedBackground';
+import { WindIcon, GaugeIcon, SunIcon, XRayIcon, ProtonIcon } from './components/icons';
 
 /**
  * The main component for the Cosmic Forecast application.
@@ -13,7 +14,7 @@ import AnimatedBackground from './components/AnimatedBackground';
  * @returns {React.ReactElement} The rendered application component.
  */
 const App: React.FC = () => {
-    const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
+    const [weatherData, setWeatherData] = useState<SpaceWeatherData | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -21,8 +22,7 @@ const App: React.FC = () => {
         const loadData = async () => {
             try {
                 setLoading(true);
-                // Fetch data for 25°20'19.3"N 49°36'01.7"E
-                const data = await fetchWeatherData({ latitude: 25.3387, longitude: 49.6005 });
+                const data = await fetchWeatherData();
                 setWeatherData(data);
                 setError(null);
             } catch (err) {
@@ -72,19 +72,62 @@ const App: React.FC = () => {
                 <header className="text-center mb-8">
                     {/* You can personalize your app by changing the name in the title below! */}
                     <h1 className="text-4xl md:text-5xl font-bold font-orbitron text-transparent bg-clip-text bg-gradient-to-r from-[#FF6B00] to-[#FFD700]">
-                        Your Cosmic Forecast
+                        Cosmic Forecast
                     </h1>
-                    <p className="text-lg text-gray-400 mt-2">Your daily link between Earth and Space weather.</p>
+                    <p className="text-lg text-gray-400 mt-2">Your daily link to Space weather.</p>
                 </header>
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-                    <WeatherCard type="earth" data={weatherData.earth} />
-                    <WeatherCard type="space" data={weatherData.space} />
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 mb-8">
+                    <WeatherCard
+                        title="Solar Wind"
+                        value={weatherData.solarWindSpeed}
+                        unit="km/s"
+                        icon={WindIcon}
+                        description="A stream of charged particles released from the Sun's upper atmosphere."
+                        borderColor="border-[#33FFD1]"
+                        glowColor="shadow-[#33FFD1]"
+                    />
+                     <WeatherCard
+                        title="Kp-index"
+                        value={weatherData.kpIndex}
+                        unit=""
+                        icon={GaugeIcon}
+                        description="A scale of 0-9 used to characterize the magnitude of geomagnetic storms."
+                        borderColor="border-[#eab308]"
+                        glowColor="shadow-[#eab308]"
+                    />
+                     <WeatherCard
+                        title="Max CME Speed"
+                        value={weatherData.cmeMaxSpeed}
+                        unit="km/s"
+                        icon={SunIcon}
+                        description="The top speed of the most significant Coronal Mass Ejection in the last 24h."
+                        borderColor="border-[#FF6B00]"
+                        glowColor="shadow-[#FF6B00]"
+                    />
+                    <WeatherCard
+                        title="Max X-ray Flux"
+                        value={weatherData.xrayFluxClass}
+                        unit=""
+                        icon={XRayIcon}
+                        description="The class of the most intense solar flare in the last 24 hours."
+                        borderColor="border-[#ef4444]"
+                        glowColor="shadow-[#ef4444]"
+                    />
+                    <WeatherCard
+                        title="SEP Events"
+                        value={weatherData.sepEvents}
+                        unit="in last 24h"
+                        icon={ProtonIcon}
+                        description="Solar Energetic Particle (proton) events detected near Earth."
+                        borderColor="border-[#a855f7]"
+                        glowColor="shadow-[#a855f7]"
+                    />
                 </div>
 
-                <ForecastStrip earthForecast={weatherData.earth.forecast} spaceForecast={weatherData.space.forecast} />
+                <ForecastStrip spaceForecast={weatherData.forecast} />
 
-                <UnifiedChart earthData={weatherData.earth} spaceData={weatherData.space} />
+                <UnifiedChart spaceData={weatherData} />
                 
                 <ImpactSection />
             </main>

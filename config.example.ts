@@ -1,6 +1,5 @@
-// To use the application with live NASA data, you need an API key.
-// 1. Get your free key from https://api.nasa.gov/
-// 2. Rename this file from `config.example.ts` to `config.ts`.
-// 3. Replace the placeholder string below with your actual API key.
+// This application retrieves the NASA API Key from the `process.env.API_KEY` environment variable.
+// This file is for informational purposes. The application's configuration in `config.ts`
+// is set up to read this environment variable automatically.
 
-export const NASA_API_KEY = 'YOUR_NASA_API_KEY_HERE';
+// There is no need to add an API key to this file or `config.ts`.

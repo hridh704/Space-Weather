@@ -1,20 +1,18 @@
 import React, { useState } from 'react';
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ComposedChart, Bar, Line, RadialBarChart, PolarAngleAxis, RadialBar } from 'recharts';
-import type { EarthWeatherData, SpaceWeatherData } from '../types';
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ComposedChart, Bar, Line, RadialBarChart, PolarAngleAxis, RadialBar, BarChart } from 'recharts';
+import type { SpaceWeatherData } from '../types';
 
 /**
  * Props for the UnifiedChart component.
  */
 interface UnifiedChartProps {
-    earthData: EarthWeatherData;
     spaceData: SpaceWeatherData;
 }
 
-type ChartView = 'temp_vs_solar' | 'wind_vs_solar' | 'geomagnetic' | 'kp_forecast';
+type ChartView = 'solar_wind' | 'geomagnetic' | 'solar_activity' | 'particle_events' | 'kp_forecast';
 
 /**
  * A custom tooltip component for Recharts to match the app's style.
- * It also handles un-scaling the Earth Wind value for display.
  * @param {object} props - The props injected by Recharts.
  * @param {boolean} props.active - Whether the tooltip is active.
  * @param {Array} props.payload - The data payload for the tooltip.
@@ -27,16 +25,9 @@ const CustomTooltip = ({ active, payload, label }: any) => {
       <div className="p-2 bg-black/70 backdrop-blur-sm border border-gray-600 rounded-md text-white">
         <p className="label">{`Time: ${label}`}</p>
         {payload.map((p: any, index: number) => {
-            let value = p.value;
-            // If this is a scaled value, divide by 10 for display.
-            if (p.dataKey === 'Earth Wind (x10)' || p.dataKey === 'Temperature (x10)') {
-                if (value !== null && value !== undefined) {
-                    value = value / 10;
-                }
-            }
             return (
                 <p key={index} style={{ color: p.color || p.stroke }}>
-                    {`${p.name}: ${value !== null && value !== undefined ? Math.round(value) : 'N/A'}`}
+                    {`${p.name}: ${p.value !== null && p.value !== undefined ? Math.round(p.value) : 'N/A'}`}
                 </p>
             );
         })}
@@ -51,27 +42,23 @@ const CustomTooltip = ({ active, payload, label }: any) => {
  * @param {UnifiedChartProps} props - The component props.
  * @returns {React.ReactElement} The rendered data visualizer section.
  */
-const UnifiedChart: React.FC<UnifiedChartProps> = ({ earthData, spaceData }) => {
-    const [activeTab, setActiveTab] = useState<ChartView>('temp_vs_solar');
+const UnifiedChart: React.FC<UnifiedChartProps> = ({ spaceData }) => {
+    const [activeTab, setActiveTab] = useState<ChartView>('solar_wind');
     
-    const combinedTempSolarData = earthData.historicalTemp.map((tempPoint, index) => ({
-        time: tempPoint.time,
-        'Temperature (x10)': tempPoint.value !== null ? tempPoint.value * 10 : null,
-        'Solar Wind': spaceData.historicalSolarWind[index]?.value,
+    // Data for Geomagnetic Chart (Kp Index)
+    const geomagneticData = spaceData.historicalKpIndex.map(kp => ({
+        time: kp.time,
+        'Max Kp-Index': kp.value
     }));
 
-    const combinedWindSolarData = earthData.historicalWind.map((windPoint, index) => ({
-        time: windPoint.time,
-        'Earth Wind (x10)': windPoint.value !== null ? windPoint.value * 10 : null,
-        'Solar Wind': spaceData.historicalSolarWind[index]?.value,
-    }));
-    
-    const allGeomagneticTimes = [...new Set([...spaceData.historicalCmeCount.map(d => d.time), ...spaceData.historicalKpIndex.map(d => d.time)])].sort();
-    const geomagneticData = allGeomagneticTimes.map(time => ({
+    // Data for Solar Activity Chart (CME Speed + X-ray Flux)
+    const solarActivityTimes = [...new Set([...spaceData.historicalCmeSpeed.map(d => d.time), ...spaceData.historicalXrayFlux.map(d => d.time)])].sort();
+    const solarActivityData = solarActivityTimes.map(time => ({
         time: time,
-        'CME Count': spaceData.historicalCmeCount.find(d => d.time === time)?.value ?? 0,
-        'Max Kp-Index': spaceData.historicalKpIndex.find(d => d.time === time)?.value ?? 0,
+        'Max CME Speed (km/s)': spaceData.historicalCmeSpeed.find(d => d.time === time)?.value,
+        'X-ray Flux Intensity': spaceData.historicalXrayFlux.find(d => d.time === time)?.value,
     }));
+
 
     /**
      * Renders the currently active chart based on the `activeTab` state.
@@ -79,41 +66,23 @@ const UnifiedChart: React.FC<UnifiedChartProps> = ({ earthData, spaceData }) => 
      */
     const renderChart = () => {
         switch (activeTab) {
-            case 'temp_vs_solar':
+            case 'solar_wind':
                 return (
                     <ResponsiveContainer width="100%" height={300}>
-                        <AreaChart data={combinedTempSolarData}>
+                        <AreaChart data={spaceData.historicalSolarWind}>
                             <defs>
-                                <linearGradient id="colorTempBlue" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8}/><stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/></linearGradient>
-                                <linearGradient id="colorSolar" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#FF6B00" stopOpacity={0.8}/><stop offset="95%" stopColor="#FF6B00" stopOpacity={0}/></linearGradient>
+                                <linearGradient id="colorSolar" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#33FFD1" stopOpacity={0.8}/><stop offset="95%" stopColor="#33FFD1" stopOpacity={0}/></linearGradient>
                             </defs>
                             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
                             <XAxis dataKey="time" stroke="#EAEAEA" />
-                            <YAxis 
-                                yAxisId="left" 
-                                orientation="left" 
-                                stroke="#3b82f6" 
-                                allowDecimals={false}
-                                tickFormatter={(value) => `${Math.round(value / 10)}`}
-                            />
-                            <YAxis yAxisId="right" orientation="right" stroke="#FF6B00" />
+                            <YAxis stroke="#33FFD1" />
                             <Tooltip content={<CustomTooltip />} />
                             <Legend />
                             <Area 
-                                yAxisId="left" 
                                 type="monotone" 
-                                dataKey="Temperature (x10)" 
-                                name="Temperature"
-                                stroke="#3b82f6" 
-                                fillOpacity={1} 
-                                fill="url(#colorTempBlue)" 
-                                connectNulls={false} 
-                            />
-                            <Area 
-                                yAxisId="right" 
-                                type="monotone" 
-                                dataKey="Solar Wind" 
-                                stroke="#FF6B00" 
+                                dataKey="value"
+                                name="Solar Wind (km/s)"
+                                stroke="#33FFD1" 
                                 fillOpacity={1} 
                                 fill="url(#colorSolar)" 
                                 connectNulls={false} 
@@ -121,37 +90,51 @@ const UnifiedChart: React.FC<UnifiedChartProps> = ({ earthData, spaceData }) => 
                         </AreaChart>
                     </ResponsiveContainer>
                 );
-            case 'wind_vs_solar':
-                 return (
+            case 'geomagnetic':
+                return (
                     <ResponsiveContainer width="100%" height={300}>
-                        <AreaChart data={combinedWindSolarData}>
+                        <AreaChart data={geomagneticData}>
                             <defs>
-                                <linearGradient id="colorEarthWind" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8}/><stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/></linearGradient>
-                                <linearGradient id="colorSolarWind" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#FF6B00" stopOpacity={0.8}/><stop offset="95%" stopColor="#FF6B00" stopOpacity={0}/></linearGradient>
+                                <linearGradient id="colorKp" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#eab308" stopOpacity={0.8}/><stop offset="95%" stopColor="#eab308" stopOpacity={0}/></linearGradient>
                             </defs>
                             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
                             <XAxis dataKey="time" stroke="#EAEAEA" />
-                            <YAxis 
-                                yAxisId="left" 
-                                orientation="left" 
-                                stroke="#3b82f6" 
-                                allowDecimals={false}
-                                tickFormatter={(value) => `${Math.round(value / 10)}`}
-                             />
-                            <YAxis yAxisId="right" orientation="right" stroke="#FF6B00" />
+                            <YAxis yAxisId="left" orientation="left" stroke="#eab308" domain={[0, 9]} allowDecimals={false} />
                             <Tooltip content={<CustomTooltip />} />
                             <Legend />
-                            <Area 
-                                yAxisId="left" 
-                                type="monotone" 
-                                dataKey="Earth Wind (x10)" 
-                                name="Earth Wind" 
-                                stroke="#3b82f6" 
-                                fill="url(#colorEarthWind)" 
-                                connectNulls={false} 
-                            />
-                            <Area yAxisId="right" type="monotone" dataKey="Solar Wind" stroke="#FF6B00" fill="url(#colorSolarWind)" connectNulls={false} />
-                        </AreaChart>
+                            <Area yAxisId="left" type="monotone" dataKey="Max Kp-Index" stroke="#eab308" fill="url(#colorKp)" connectNulls={false} />
+                        </ComposedChart>
+                    </ResponsiveContainer>
+                );
+            case 'solar_activity':
+                return (
+                    <ResponsiveContainer width="100%" height={300}>
+                        <ComposedChart data={solarActivityData}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+                            <XAxis dataKey="time" stroke="#EAEAEA" />
+                            <YAxis yAxisId="left" orientation="left" stroke="#FF6B00" label={{ value: 'km/s', angle: -90, position: 'insideLeft', fill: '#FF6B00' }}/>
+                            <YAxis yAxisId="right" orientation="right" stroke="#ef4444" domain={[10, 65]} allowDecimals={false} tickFormatter={(tick) => { if(tick===10) return 'A'; if(tick===20) return 'B'; if(tick===30) return 'C'; if(tick===40) return 'M'; if(tick===50) return 'X'; return '' }}/>
+                            <Tooltip content={<CustomTooltip />} />
+                            <Legend />
+                            <Bar yAxisId="right" dataKey="X-ray Flux Intensity" barSize={20} fill="#ef4444" />
+                            <Line yAxisId="left" type="monotone" dataKey="Max CME Speed (km/s)" stroke="#FF6B00" strokeWidth={2} connectNulls={false} />
+                        </ComposedChart>
+                    </ResponsiveContainer>
+                );
+            case 'particle_events':
+                return (
+                    <ResponsiveContainer width="100%" height={300}>
+                        <BarChart data={spaceData.historicalSepEvents}>
+                             <defs>
+                                <linearGradient id="colorSep" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#a855f7" stopOpacity={0.8}/><stop offset="95%" stopColor="#a855f7" stopOpacity={0}/></linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+                            <XAxis dataKey="time" stroke="#EAEAEA" />
+                            <YAxis stroke="#a855f7" allowDecimals={false} />
+                            <Tooltip content={<CustomTooltip />} />
+                            <Legend />
+                            <Bar dataKey="value" name="SEP Events" fill="url(#colorSep)" barSize={30} />
+                        </BarChart>
                     </ResponsiveContainer>
                 );
             case 'kp_forecast': {
@@ -203,21 +186,6 @@ const UnifiedChart: React.FC<UnifiedChartProps> = ({ earthData, spaceData }) => 
                     </ResponsiveContainer>
                 )
             }
-            case 'geomagnetic':
-                return (
-                    <ResponsiveContainer width="100%" height={300}>
-                        <ComposedChart data={geomagneticData}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-                            <XAxis dataKey="time" stroke="#EAEAEA" />
-                            <YAxis yAxisId="left" orientation="left" stroke="#eab308" domain={[0, dataMax => (dataMax < 5 ? 5 : dataMax + 1)]} allowDecimals={false} />
-                            <YAxis yAxisId="right" orientation="right" stroke="#FF6B00" domain={[0, 9]} />
-                            <Tooltip content={<CustomTooltip />} />
-                            <Legend />
-                            <Bar yAxisId="left" dataKey="CME Count" barSize={20} fill="#eab308" />
-                            <Line yAxisId="right" type="monotone" dataKey="Max Kp-Index" stroke="#FF6B00" strokeWidth={2} connectNulls={false} />
-                        </ComposedChart>
-                    </ResponsiveContainer>
-                );
             default:
                 return null;
         }
@@ -242,9 +210,10 @@ const UnifiedChart: React.FC<UnifiedChartProps> = ({ earthData, spaceData }) => 
         <div className="bg-black/30 backdrop-blur-lg rounded-2xl p-4 sm:p-6 border border-gray-700 mb-8">
             <h3 className="text-2xl font-bold font-orbitron mb-4 text-center">Data Visualizer</h3>
             <div className="flex flex-wrap justify-center gap-2 mb-6">
-                <TabButton view="temp_vs_solar" label="🌡️ Temp vs Solar" />
-                <TabButton view="wind_vs_solar" label="🌬️ Wind vs Solar" />
-                <TabButton view="geomagnetic" label="🌩️ Geomagnetic" />
+                <TabButton view="solar_wind" label="🌬️ Solar Wind" />
+                <TabButton view="geomagnetic" label="🌍 Geomagnetic" />
+                <TabButton view="solar_activity" label="☀️ Solar Activity" />
+                <TabButton view="particle_events" label="⚛️ Particle Events" />
                 <TabButton view="kp_forecast" label="⚡ Kp Forecast" />
             </div>
             <div className="w-full h-[300px]">
